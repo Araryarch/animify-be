@@ -39,13 +39,13 @@ export const animeController = (app: Elysia) => {
             .get("/home", async () => {
                 const cacheKey = "home";
                 const cached = cache.get<any>(cacheKey);
-                if (cached) return createResponse(cached.data, cached.pagination, "Successfully fetched home data (cached)");
+                if (cached) return createResponse(cached, null, "Successfully fetched home data (cached)");
 
                 const data = await scraper.getHome();
-                if (data.data.recent.animeList.length > 0) {
+                if (data.recent.animeList.length > 0) {
                     cache.set(cacheKey, data, 3 * 60 * 1000); // 3 minutes cache
                 }
-                return createResponse(data.data, data.pagination, "Successfully fetched home data");
+                return createResponse(data, null, "Successfully fetched home data");
             }, {
                 detail: {
                     summary: "Home Info",
