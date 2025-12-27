@@ -42,7 +42,9 @@ export const animeController = (app: Elysia) => {
                 if (cached) return createResponse(cached.data, cached.pagination, "Successfully fetched home data (cached)");
 
                 const data = await scraper.getHome();
-                cache.set(cacheKey, data, 3 * 60 * 1000); // 3 minutes cache
+                if (data.data.recent.animeList.length > 0) {
+                    cache.set(cacheKey, data, 3 * 60 * 1000); // 3 minutes cache
+                }
                 return createResponse(data.data, data.pagination, "Successfully fetched home data");
             }, {
                 detail: {
@@ -92,7 +94,9 @@ export const animeController = (app: Elysia) => {
                 if (cached) return createResponse(cached.data, cached.pagination, "Successfully fetched recent anime (cached)");
 
                 const data = await scraper.getRecent(page);
-                cache.set(cacheKey, data, 5 * 60 * 1000); // 5 minutes cache
+                if (data.data.animeList.length > 0) {
+                    cache.set(cacheKey, data, 5 * 60 * 1000); // 5 minutes cache
+                }
                 return createResponse(data.data, data.pagination, "Successfully fetched recent anime");
             }, {
                 query: PaginationDto,
@@ -113,7 +117,9 @@ export const animeController = (app: Elysia) => {
                 if (cached) return createResponse(cached.data, cached.pagination, `Successfully searched for: ${searchQuery} (cached)`);
 
                 const data = await scraper.getSearch(searchQuery, page);
-                cache.set(cacheKey, data, 10 * 60 * 1000); // 10 minutes cache for search
+                if (data.data.animeList.length > 0) {
+                    cache.set(cacheKey, data, 10 * 60 * 1000); // 10 minutes cache for search
+                }
                 return createResponse(data.data, data.pagination, `Successfully searched for: ${searchQuery}`);
             }, {
                 query: SearchQueryDto,
