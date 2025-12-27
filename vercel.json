@@ -1,7 +1,8 @@
 {
-    "functions": {
-        "api/**/*.ts": {
-            "runtime": "bun@1.3.5"
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/api"
         }
-    }
+    ]
 }

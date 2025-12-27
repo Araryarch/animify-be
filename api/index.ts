@@ -16,11 +16,5 @@ const app = new Elysia()
     .use(cors())
     .use(animeController);
 
-export default app;
-
-// Handle Vercel serverless function
-export const GET = app.handle;
-export const POST = app.handle;
-export const PUT = app.handle;
-export const DELETE = app.handle;
-export const PATCH = app.handle;
+// Export for Vercel
+export default app.fetch;
