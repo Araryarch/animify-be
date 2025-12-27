@@ -30,6 +30,8 @@ Thumbs.db
 dist/
 build/
 .output/
+*.js
+!bruno/**/*.js
 
 # Vercel
 .vercel
