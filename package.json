@@ -8,9 +8,11 @@
     "dependencies": {
         "@elysiajs/cors": "latest",
         "@elysiajs/swagger": "latest",
+        "@sparticuz/chromium": "^131.0.2",
         "cheerio": "latest",
         "elysia": "latest",
         "puppeteer": "^24.34.0",
+        "puppeteer-core": "^24.34.0",
         "puppeteer-extra": "^3.3.6",
         "puppeteer-extra-plugin-stealth": "^2.11.2",
         "typescript": "^5.9.3"

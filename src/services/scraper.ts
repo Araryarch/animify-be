@@ -15,20 +15,36 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour cache
 
 export class ScraperService {
   private async launchBrowser(): Promise<Browser> {
-    const userDataDir = join(tmpdir(), `samehadaku-pptr-${randomUUID()}`);
-    return puppeteer.launch({
-      headless: true,
-      userDataDir,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu",
-      ],
-    });
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+
+    if (isProduction) {
+      // Use Chromium for Vercel
+      const chromium = await import('@sparticuz/chromium');
+      const puppeteerCore = await import('puppeteer-core');
+
+      return puppeteerCore.default.launch({
+        args: chromium.default.args,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath(),
+        headless: chromium.default.headless,
+      });
+    } else {
+      // Local development with regular Puppeteer
+      const userDataDir = join(tmpdir(), `samehadaku-pptr-${randomUUID()}`);
+      return puppeteer.launch({
+        headless: true,
+        userDataDir,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--disable-gpu",
+        ],
+      });
+    }
   }
 
   private async getPage(): Promise<{ browser: Browser; page: Page }> {
