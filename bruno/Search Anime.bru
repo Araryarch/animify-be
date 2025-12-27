@@ -1,0 +1,28 @@
+meta {
+  name: Search Anime
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/search?q=naruto&page=1
+  body: none
+  auth: none
+}
+
+params:query {
+  q: naruto
+  page: 1
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Search anime by keyword.
+  
+  Query params:
+  - q: Search keyword (required)
+  - page: Page number (default: 1)
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Ongoing Anime
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/ongoing?page=1
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get list of currently airing anime.
+  
+  Query params:
+  - page: Page number (default: 1)
+  
+  Response includes genreList for each anime.
+}

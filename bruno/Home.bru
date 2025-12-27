@@ -1,0 +1,25 @@
+meta {
+  name: Home
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/home
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get homepage data including recent, batch, movie, and top10 sections.
+  
+  Response structure matches SankaVollerei API:
+  - data.recent: Latest anime updates
+  - data.batch: Batch downloads  
+  - data.movie: Anime movies
+  - data.top10: Popular anime ranking
+}

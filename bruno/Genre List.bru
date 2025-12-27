@@ -1,0 +1,21 @@
+meta {
+  name: Genre List
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/genres
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get list of all available anime genres.
+  
+  Returns genreList with title, genreId, href, and samehadakuUrl.
+}

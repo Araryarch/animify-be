@@ -1,0 +1,33 @@
+meta {
+  name: Anime By Genre
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/genres/:genreId?page=1
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+}
+
+params:path {
+  genreId: Harem
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get anime list filtered by genre.
+  
+  Path params:
+  - genreId: Genre ID (e.g., action, comedy, romance)
+  
+  Query params:
+  - page: Page number (default: 1)
+}

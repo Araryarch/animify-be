@@ -1,0 +1,33 @@
+meta {
+  name: Anime Detail
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/anime/:animeId
+  body: none
+  auth: none
+}
+
+params:path {
+  animeId: one-piece
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get detailed anime information.
+  
+  Path params:
+  - animeId: Anime slug ID (e.g., one-piece, naruto)
+  
+  Response includes:
+  - title, poster, score, synopsis
+  - japanese, english, synonyms
+  - status, type, source, duration
+  - season, studios, producers, aired
+  - genreList, batchList, episodeList
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Popular Anime
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/popular?page=1
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get popular anime list sorted by popularity.
+  
+  Query params:
+  - page: Page number (default: 1)
+}

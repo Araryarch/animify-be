@@ -1,0 +1,28 @@
+meta {
+  name: Recent Anime
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/anime/samehadaku/recent?page=1
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+docs {
+  Get latest anime updates with pagination.
+  
+  Query params:
+  - page: Page number (default: 1)
+  
+  Response includes pagination with totalPages (693+ pages available).
+}
