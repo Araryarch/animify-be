@@ -47,12 +47,42 @@ export const animeController = (app: Elysia) => {
                 detail: {
                     summary: "Home Info",
                     description: "Get homepage data including recent, batch, movie, and top10 anime. Returns cached data if available (3min TTL).",
-                    tags: ["Anime"],
-                    responses: {
-                        200: { description: "Successfully fetched home data with recent, batch, movie, and top10 sections" },
-                        429: { description: "Rate limit exceeded (30 req/min)" }
-                    }
-                }
+                    tags: ["Anime"]
+                },
+                response: t.Object({
+                    status: t.String({ examples: ["success"] }),
+                    message: t.String({ examples: ["Successfully fetched home data"] }),
+                    data: t.Object({
+                        recent: t.Object({
+                            animeList: t.Array(t.Object({
+                                title: t.String(),
+                                poster: t.String(),
+                                animeId: t.String(),
+                                href: t.String()
+                            }))
+                        }),
+                        batch: t.Object({
+                            batchList: t.Array(t.Object({
+                                title: t.String(),
+                                poster: t.String()
+                            }))
+                        }),
+                        movie: t.Object({
+                            animeList: t.Array(t.Any())
+                        }),
+                        top10: t.Object({
+                            animeList: t.Array(t.Any())
+                        })
+                    }),
+                    pagination: t.Object({
+                        currentPage: t.Number({ examples: [1] }),
+                        hasPrevPage: t.Boolean({ examples: [false] }),
+                        prevPage: t.Union([t.Number(), t.Null()]),
+                        hasNextPage: t.Boolean({ examples: [true] }),
+                        nextPage: t.Union([t.Number(), t.Null()]),
+                        totalPages: t.Number({ examples: [600] })
+                    })
+                })
             })
             .get("/recent", async ({ query }) => {
                 const page = query.page || 1;
