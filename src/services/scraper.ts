@@ -242,7 +242,7 @@ export class ScraperService {
   }
 
   // Optimized for Archive Lists (Search, Genre, Ongoing, etc)
-  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1, overrideStatus?: string) {
+  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1) {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
@@ -253,7 +253,7 @@ export class ScraperService {
         await page.waitForSelector("article.animpost, .animpost", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeAnimeList"); }
 
-      const data = await page.evaluate((forcedStatus) => {
+      const data = await page.evaluate(() => {
         const items: any[] = [];
         const elements = document.querySelectorAll("article.animpost, .animpost");
 
@@ -286,12 +286,20 @@ export class ScraperService {
           const score = el.querySelector(".score")?.textContent?.trim().replace(/[^0-9.]/g, '') || "";
           const type = el.querySelector(".type")?.textContent?.trim() || "";
 
-          let status = forcedStatus || el.querySelector(".status")?.textContent?.trim() || "";
+          let status = el.querySelector(".status")?.textContent?.trim() || "";
+
           if (!status) {
             const types = el.querySelectorAll(".type");
             if (types.length > 1) {
               status = types[1].textContent?.trim() || "";
             }
+          }
+
+          // Enhanced: Check raw text for status keywords if standard parsing fails
+          if (!status || status === type || status === "TV") {
+            const rawText = el.textContent || "";
+            if (rawText.includes("Ongoing")) status = "Ongoing";
+            else if (rawText.includes("Completed")) status = "Completed";
           }
 
           if (title && animeId) {
@@ -337,7 +345,7 @@ export class ScraperService {
         }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
-      }, overrideStatus);
+      });
 
       return {
         message: "Successfully fetched data",
@@ -619,7 +627,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=ongoing&order=update`
       : `${BASE_URL}/anime/?status=ongoing&order=update`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Ongoing");
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
     return this.enrichPaginationWithCache(result, 'ongoing', pageNumber, `${BASE_URL}/anime/page/{page}/?status=ongoing&order=update`);
   }
 
@@ -627,7 +635,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=completed&order=latest`
       : `${BASE_URL}/anime/?status=completed&order=latest`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Completed");
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
     return this.enrichPaginationWithCache(result, 'completed', pageNumber, `${BASE_URL}/anime/page/{page}/?status=completed&order=latest`);
   }
 
