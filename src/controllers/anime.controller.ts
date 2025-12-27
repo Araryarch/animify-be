@@ -6,12 +6,35 @@ import {
     SearchQueryDto,
 } from "../dtos/anime.dto";
 import { cache } from "../utils/cache";
+import { scrapeLimiter } from "../utils/ratelimit";
 
 export const animeController = (app: Elysia) => {
     const scraper = new ScraperService();
 
     return app.group("/anime/samehadaku", (app) =>
         app
+            // Rate limiting middleware
+            .onBeforeHandle(({ request, set }) => {
+                const ip = request.headers.get('x-forwarded-for') ||
+                    request.headers.get('x-real-ip') ||
+                    'unknown';
+
+                const result = scrapeLimiter.check(ip);
+
+                // Set rate limit headers
+                set.headers['X-RateLimit-Limit'] = '30';
+                set.headers['X-RateLimit-Remaining'] = result.remaining.toString();
+                set.headers['X-RateLimit-Reset'] = new Date(result.resetTime).toISOString();
+
+                if (!result.allowed) {
+                    set.status = 429;
+                    return {
+                        status: 'error',
+                        message: 'Too many requests. Please try again later.',
+                        retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000)
+                    };
+                }
+            })
             .get("/home", async () => {
                 const cacheKey = "home";
                 const cached = cache.get<any>(cacheKey);
