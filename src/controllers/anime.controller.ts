@@ -7,6 +7,7 @@ import {
 } from "../dtos/anime.dto";
 import { cache } from "../utils/cache";
 import { scrapeLimiter } from "../utils/ratelimit";
+import { ResponseSchemas } from "../utils/swagger-schemas";
 
 export const animeController = (app: Elysia) => {
     const scraper = new ScraperService();
@@ -95,7 +96,12 @@ export const animeController = (app: Elysia) => {
                 return createResponse(data.data, data.pagination, "Successfully fetched recent anime");
             }, {
                 query: PaginationDto,
-                detail: { summary: "Recent Anime", description: "Get latest anime updates" }
+                detail: {
+                    summary: "Recent Anime",
+                    description: "Get latest anime updates. Cached for 5 minutes.",
+                    tags: ["Anime"]
+                },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/search", async ({ query }) => {
                 const page = query.page || 1;
@@ -113,13 +119,10 @@ export const animeController = (app: Elysia) => {
                 query: SearchQueryDto,
                 detail: {
                     summary: "Search Anime",
-                    description: "Search anime by keyword. Results are cached for 10 minutes. Rate limit: 30 req/min.",
-                    tags: ["Anime"],
-                    responses: {
-                        200: { description: "Search results with pagination" },
-                        429: { description: "Rate limit exceeded" }
-                    }
-                }
+                    description: "Search anime by keyword. Results are cached for 10 minutes.",
+                    tags: ["Anime"]
+                },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/ongoing", async ({ query }) => {
                 const page = query.page || 1;
@@ -127,7 +130,8 @@ export const animeController = (app: Elysia) => {
                 return createResponse(data.data, data.pagination, "Successfully fetched ongoing anime");
             }, {
                 query: PaginationDto,
-                detail: { summary: "Ongoing Anime", description: "Get ongoing anime list" }
+                detail: { summary: "Ongoing Anime", description: "Get ongoing anime list", tags: ["Anime"] },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/completed", async ({ query }) => {
                 const page = query.page || 1;
@@ -135,7 +139,8 @@ export const animeController = (app: Elysia) => {
                 return createResponse(data.data, data.pagination, "Successfully fetched completed anime");
             }, {
                 query: PaginationDto,
-                detail: { summary: "Completed Anime", description: "Get completed anime list" }
+                detail: { summary: "Completed Anime", description: "Get completed anime list", tags: ["Anime"] },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/popular", async ({ query }) => {
                 const page = query.page || 1;
@@ -143,7 +148,8 @@ export const animeController = (app: Elysia) => {
                 return createResponse(data.data, data.pagination, "Successfully fetched popular anime");
             }, {
                 query: PaginationDto,
-                detail: { summary: "Popular Anime", description: "Get popular anime list" }
+                detail: { summary: "Popular Anime", description: "Get popular anime list", tags: ["Anime"] },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/movies", async ({ query }) => {
                 const page = query.page || 1;
@@ -151,7 +157,8 @@ export const animeController = (app: Elysia) => {
                 return createResponse(data.data, data.pagination, "Successfully fetched anime movies");
             }, {
                 query: PaginationDto,
-                detail: { summary: "Anime Movies", description: "Get anime movies list" }
+                detail: { summary: "Anime Movies", description: "Get anime movies list", tags: ["Anime"] },
+                response: ResponseSchemas.success(ResponseSchemas.animeList)
             })
             .get("/genres", async () => {
                 const data = await scraper.getGenres();
