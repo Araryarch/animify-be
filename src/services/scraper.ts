@@ -152,49 +152,42 @@ export class ScraperService {
     };
   }
 
+  // Optimized for Recent Updates (and Home Pagination)
   private async scrapeRecentList(url: string, pageNumber: number = 1) {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
       ({ browser, page } = await this.getPage());
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+      // Use domcontentloaded for faster loading
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
       try {
-        await page.waitForSelector(".post-show ul li, .animpost", { timeout: 30000 });
+        await page.waitForSelector(".post-show ul li", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeRecentList"); }
 
       const data = await page.evaluate(() => {
         const items: any[] = [];
-
-        // Try multiple selectors: .post-show ul li (home), .animpost (archive), article (general)
-        const elements = document.querySelectorAll(".post-show ul li, article.animpost, .animpost");
+        // Recent pages usually use .post-show ul li structure (same as home)
+        const elements = document.querySelectorAll(".post-show ul li");
 
         elements.forEach((el) => {
-          // Find title specifically in .entry-title or .dtla h2
-          const titleEl = el.querySelector(".entry-title a") || el.querySelector(".dtla h2 a") || el.querySelector("h2 a") || el.querySelector(".animposx a") || el.querySelector("a[title]");
+          const titleEl = el.querySelector(".entry-title a") || el.querySelector(".dtla h2 a") || el.querySelector("h2 a") || el.querySelector("a[title]");
           const thumbEl = el.querySelector(".thumb img") || el.querySelector("img");
-
-          // Get episode info
-          let episodes = "";
           const authorEl = el.querySelector("author[itemprop='name']") || el.querySelector(".ami");
-          if (authorEl) {
-            episodes = authorEl.textContent?.trim() || "";
-          }
-
-          // Get release date
-          let releasedOn = "";
-          const spans = el.querySelectorAll(".dtla span, span");
-          spans.forEach(span => {
-            if (span.textContent?.includes("Released on")) {
-              releasedOn = span.textContent.replace(/.*Released on.*?:\s*/, "").trim();
-            }
-          });
 
           const samehadakuUrl = titleEl?.getAttribute("href") || "";
           const animeId = samehadakuUrl.split("/").filter(Boolean).pop() || "";
           const title = titleEl?.textContent?.trim() || titleEl?.getAttribute("title") || "";
 
-          // Exclude if no animeId or title
+          let releasedOn = "";
+          el.querySelectorAll(".dtla span, span").forEach(span => {
+            if (span.textContent?.includes("Released on")) {
+              releasedOn = span.textContent.replace(/.*Released on.*?:\s*/, "").trim();
+            }
+          });
+
+          let episodes = authorEl?.textContent?.trim() || "";
+
           if (title && animeId) {
             items.push({
               title,
@@ -208,34 +201,24 @@ export class ScraperService {
           }
         });
 
-        // Check pagination using link rel="next" and rel="prev"
         const nextLink = document.querySelector('link[rel="next"]');
         const prevLink = document.querySelector('link[rel="prev"]');
         const hasNextPage = !!nextLink;
         const hasPrevPage = !!prevLink;
 
-        // Try to get total pages from page numbers if available
         let totalPages = 0;
-        // Look for last page number in pagination
         const pageNums = document.querySelectorAll('.hpage a, .pagination a, .page-numbers');
         pageNums.forEach(el => {
           const text = el.textContent?.trim() || '';
           const textNum = parseInt(text);
           if (!isNaN(textNum) && textNum > totalPages) totalPages = textNum;
-
           const href = el.getAttribute('href') || '';
           const match = href.match(/\/page\/(\d+)/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > totalPages) totalPages = num;
-          }
+          if (match && parseInt(match[1]) > totalPages) totalPages = parseInt(match[1]);
         });
 
-        // Fallback: if no totalPages found but hasNextPage, estimate
         if (totalPages === 0 && hasNextPage) {
-          totalPages = pageNumber + 10; // Conservative estimate
-        } else if (totalPages === 0) {
-          totalPages = pageNumber; // Current page is last
+          totalPages = 0;
         }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
@@ -258,15 +241,16 @@ export class ScraperService {
     }
   }
 
+  // Optimized for Archive Lists (Search, Genre, Ongoing, etc)
   private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1) {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
       ({ browser, page } = await this.getPage());
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
       try {
-        await page.waitForSelector("article.animpost, .animpost, .post-show ul li", { timeout: 30000 });
+        await page.waitForSelector("article.animpost, .animpost", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeAnimeList"); }
 
       const data = await page.evaluate(() => {
@@ -301,7 +285,14 @@ export class ScraperService {
 
           const score = el.querySelector(".score")?.textContent?.trim().replace(/[^0-9.]/g, '') || "";
           const type = el.querySelector(".type")?.textContent?.trim() || "";
-          const status = el.querySelector(".status")?.textContent?.trim() || "";
+
+          let status = el.querySelector(".status")?.textContent?.trim() || "";
+          if (!status) {
+            const types = el.querySelectorAll(".type");
+            if (types.length > 1) {
+              status = types[1].textContent?.trim() || "";
+            }
+          }
 
           if (title && animeId) {
             items.push({
@@ -366,6 +357,7 @@ export class ScraperService {
     }
   }
 
+  // Home page with recent, batch, movie, top10 sections
   async getHome() {
     let browser: Browser | undefined;
     let page: Page | undefined;
