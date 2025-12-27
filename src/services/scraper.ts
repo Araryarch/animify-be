@@ -241,7 +241,7 @@ export class ScraperService {
     }
   }
 
-  private async getAggregatedList(apiPage: number, urlBuilder: (p: number) => string, status: string) {
+  private async getAggregatedList(apiPage: number, urlBuilder: (p: number) => string, status: string, strictFilter: boolean = true) {
     const scale = 3;
     const startWebPage = (apiPage - 1) * scale + 1;
     const fetchPromises = [];
@@ -250,7 +250,7 @@ export class ScraperService {
       const p = startWebPage + i;
       const url = urlBuilder(p);
       fetchPromises.push(this.scrapeAnimeList(url, "animeList", p, status).then(res => {
-        if (res.data && Array.isArray(res.data.animeList)) {
+        if (strictFilter && res.data && Array.isArray(res.data.animeList)) {
           res.data.animeList = res.data.animeList.filter((a: any) => a.status === status);
         }
         return res;
@@ -454,8 +454,30 @@ export class ScraperService {
     }
   }
 
-  // Home page with recent, batch, movie, top10 sections
   async getHome() {
+    const urlBuilder = (p: number) => p > 1
+      ? `${BASE_URL}/anime/page/${p}/?status=ongoing&order=update`
+      : `${BASE_URL}/anime/?status=ongoing&order=update`;
+
+    const [ongoingData, widgetsData] = await Promise.all([
+      this.getAggregatedList(1, urlBuilder, "Ongoing", false), // False = Allow mixed status (recent updates)
+      this.scrapeHomeWidgets()
+    ]);
+
+    return {
+      recent: {
+        href: "/samehadaku/ongoing",
+        samehadakuUrl: "https://v1.samehadaku.how/anime/?status=ongoing&order=update",
+        animeList: ongoingData.data.animeList
+      },
+      batch: widgetsData.data.batch,
+      movie: widgetsData.data.movie,
+      top10: widgetsData.data.top10
+    };
+  }
+
+  // Home page with batch, movie, top10 sections (Recent fetched from Ongoing)
+  private async scrapeHomeWidgets() {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
@@ -467,38 +489,7 @@ export class ScraperService {
       } catch (e) { console.warn("Wait selector timeout in getHome, checking if content exists anyway"); }
 
       const data = await page.evaluate(() => {
-        const extractAnimeList = (selector: string) => {
-          const items: any[] = [];
-          document.querySelectorAll(selector).forEach((el) => {
-            const titleEl = el.querySelector(".entry-title a") || el.querySelector(".dtla h2 a") || el.querySelector("a");
-            const thumbEl = el.querySelector("img");
-            const authorEl = el.querySelector("author[itemprop='name']");
-            const samehadakuUrl = titleEl?.getAttribute("href") || "";
-            const animeId = samehadakuUrl.split("/").filter(Boolean).pop() || "";
 
-            if (titleEl && animeId) {
-              let releasedOn = "";
-              el.querySelectorAll(".dtla span, span").forEach(span => {
-                if (span.textContent?.includes("Released on")) {
-                  releasedOn = span.textContent.replace(/.*Released on.*?:\s*/, "").trim();
-                }
-              });
-
-              items.push({
-                title: titleEl.textContent?.trim() || titleEl.getAttribute("title") || "",
-                poster: thumbEl?.getAttribute("src") || "",
-                episodes: authorEl?.textContent?.trim() || "",
-                releasedOn,
-                animeId,
-                href: `/samehadaku/anime/${animeId}`,
-                samehadakuUrl
-              });
-            }
-          });
-          return items;
-        };
-
-        const recentItems = extractAnimeList(".post-show ul li");
 
         const batchItems: any[] = [];
         document.querySelectorAll(".listupd .bs, .bixbox.batchlist article, .widget-batch ul li").forEach((el) => {
@@ -586,11 +577,6 @@ export class ScraperService {
         });
 
         return {
-          recent: {
-            href: "/samehadaku/recent",
-            samehadakuUrl: "https://v1.samehadaku.how/",
-            animeList: recentItems
-          },
           batch: {
             href: "/samehadaku/batch",
             samehadakuUrl: "https://v1.samehadaku.how/batch/",
