@@ -242,7 +242,7 @@ export class ScraperService {
   }
 
   // Optimized for Archive Lists (Search, Genre, Ongoing, etc)
-  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1) {
+  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1, overrideStatus?: string) {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
@@ -253,7 +253,7 @@ export class ScraperService {
         await page.waitForSelector("article.animpost, .animpost", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeAnimeList"); }
 
-      const data = await page.evaluate(() => {
+      const data = await page.evaluate((forcedStatus) => {
         const items: any[] = [];
         const elements = document.querySelectorAll("article.animpost, .animpost");
 
@@ -286,7 +286,7 @@ export class ScraperService {
           const score = el.querySelector(".score")?.textContent?.trim().replace(/[^0-9.]/g, '') || "";
           const type = el.querySelector(".type")?.textContent?.trim() || "";
 
-          let status = el.querySelector(".status")?.textContent?.trim() || "";
+          let status = forcedStatus || el.querySelector(".status")?.textContent?.trim() || "";
           if (!status) {
             const types = el.querySelectorAll(".type");
             if (types.length > 1) {
@@ -337,7 +337,7 @@ export class ScraperService {
         }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
-      });
+      }, overrideStatus);
 
       return {
         message: "Successfully fetched data",
@@ -619,7 +619,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=ongoing&order=update`
       : `${BASE_URL}/anime/?status=ongoing&order=update`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Ongoing");
     return this.enrichPaginationWithCache(result, 'ongoing', pageNumber, `${BASE_URL}/anime/page/{page}/?status=ongoing&order=update`);
   }
 
@@ -627,7 +627,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=completed&order=latest`
       : `${BASE_URL}/anime/?status=completed&order=latest`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Completed");
     return this.enrichPaginationWithCache(result, 'completed', pageNumber, `${BASE_URL}/anime/page/{page}/?status=completed&order=latest`);
   }
 
