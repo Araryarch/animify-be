@@ -1,7 +1,7 @@
 {
     "functions": {
         "api/**/*.ts": {
-            "runtime": "bun@1.x"
+            "runtime": "bun"
         }
     }
 }
