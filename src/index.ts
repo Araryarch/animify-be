@@ -40,13 +40,4 @@ const app = new Elysia()
 // For Vercel deployment
 export default app;
 
-// For local development
-if (import.meta.env?.DEV || process.env.NODE_ENV !== 'production') {
-    app.listen(3000);
-    console.log(
-        `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-    );
-    console.log(
-        `📄 Swagger documentation available at http://${app.server?.hostname}:${app.server?.port}/swagger`
-    );
-}
+
