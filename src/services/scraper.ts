@@ -46,9 +46,7 @@ export class ScraperService {
     }
   }
 
-  private async getPage(): Promise<{ browser: Browser; page: Page }> {
-    const browser = await this.launchBrowser();
-    const page = await browser.newPage();
+  private async configurePage(page: Page) {
     await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
@@ -62,7 +60,12 @@ export class ScraperService {
         req.continue();
       }
     });
+  }
 
+  private async getPage(): Promise<{ browser: Browser; page: Page }> {
+    const browser = await this.launchBrowser();
+    const page = await browser.newPage();
+    await this.configurePage(page);
     return { browser, page };
   }
 
@@ -131,6 +134,12 @@ export class ScraperService {
 
 
   private constructPagination(page: number, hasNext: boolean, hasPrev: boolean, totalPages: number = 0) {
+    // If no meaningful pagination data (single page or no data)
+    // User request: "kalau gada biarin null aja"
+    if (totalPages <= 1 && !hasNext && !hasPrev && page === 1) {
+      return null;
+    }
+
     // Ensure totalPages is at least current page
     let validTotalPages = totalPages;
     if (validTotalPages < page) {
@@ -595,9 +604,12 @@ export class ScraperService {
         };
       });
 
+      // Enrich Missing Data (Synopsis, etc.) - User Request
+      await this.enrichAnimeList([...data.movie.animeList, ...data.top10.animeList]);
+
+      // Fallback for batch if empty
       if (data.batch.batchList.length === 0) {
         try {
-          console.log(`${BASE_URL}/batch/ for fallback...`);
           await page.goto(`${BASE_URL}/batch/`, { waitUntil: "domcontentloaded" });
           const batches = await page.evaluate(() => {
             return Array.from(document.querySelectorAll("article.animpost")).map((el: any) => {
@@ -622,46 +634,22 @@ export class ScraperService {
         }
       }
 
-      const recentCacheKey = 'recent';
-      const cachedTotal = totalPagesCache.get(recentCacheKey);
-      let totalPages = 600;
+      return { data };
 
-      if (cachedTotal && Date.now() - cachedTotal.timestamp < CACHE_TTL) {
-        totalPages = cachedTotal.value;
-      } else {
-        this.findActualTotalPages(`${BASE_URL}/page/{page}/`, recentCacheKey, 1).then((total: number) => {
-          console.log(`Updated cache for recent (from home): ${total}`);
-        }).catch(console.error);
-      }
-
-      return {
-        message: "Successfully fetched home",
-        data,
-        pagination: {
-          currentPage: 1,
-          hasPrevPage: false,
-          prevPage: null,
-          hasNextPage: true,
-          nextPage: 2,
-          totalPages
-        }
-      };
     } catch (error) {
-      console.error('Error scraping home:', error);
+      console.error("Error scraping home widgets:", error);
       return {
-        message: "Failed to fetch home",
         data: {
-          recent: { href: "/samehadaku/recent", samehadakuUrl: "", animeList: [] },
-          batch: { href: "/samehadaku/batch", samehadakuUrl: "", batchList: [] },
-          movie: { href: "/samehadaku/movies", samehadakuUrl: "", animeList: [] },
-          top10: { href: "/samehadaku/popular", samehadakuUrl: "", animeList: [] }
-        },
-        pagination: null
+          batch: { href: "", samehadakuUrl: "", batchList: [] },
+          movie: { href: "", samehadakuUrl: "", animeList: [] },
+          top10: { href: "", samehadakuUrl: "", animeList: [] }
+        }
       };
     } finally {
       if (browser) await browser.close();
     }
   }
+
 
   private async enrichPaginationWithCache(result: any, endpoint: string, pageNumber: number, urlPattern: string) {
     if (result.pagination) {
@@ -984,6 +972,77 @@ export class ScraperService {
     } catch (error) {
       console.error(error);
       return null;
+    } finally {
+      if (browser) await browser.close();
+    }
+  }
+
+  // Helper to enrich items with missing details (synopsis, genre, etc.) by visiting detail page
+  private async enrichAnimeList(items: any[]) {
+    // Filter items that need enrichment (missing synopsis)
+    const toEnrich = items.filter(i => (!i.synopsis || i.synopsis === "") && i.animeId);
+    if (toEnrich.length === 0) return;
+
+    console.log(`Enriching ${toEnrich.length} items with missing details...`);
+
+    let browser: Browser | undefined;
+    try {
+      browser = await this.launchBrowser();
+      const concurrency = 3; // Process 3 at a time to be safe
+
+      for (let i = 0; i < toEnrich.length; i += concurrency) {
+        const chunk = toEnrich.slice(i, i + concurrency);
+        await Promise.all(chunk.map(async (item) => {
+          let page: Page | undefined;
+          try {
+            if (!browser) return;
+            page = await browser.newPage();
+            await this.configurePage(page);
+
+            // Go to detail page
+            const url = item.samehadakuUrl || `${BASE_URL}/anime/${item.animeId}`;
+            await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+
+            // Light scraping for synopsis and basic info
+            const details = await page.evaluate(() => {
+              const synopsis = Array.from(document.querySelectorAll(".entry-content p, .desc p"))
+                .map(p => p.textContent?.trim())
+                .filter(Boolean)
+                .join("\n\n");
+
+              const genreList: any[] = [];
+              document.querySelectorAll(".genre-info a, .genxed a").forEach(el => {
+                const sUrl = el.getAttribute("href") || "";
+                const gId = sUrl.split("/").filter(Boolean).pop() || "";
+                if (el.textContent) {
+                  genreList.push({
+                    title: el.textContent.trim(),
+                    genreId: gId,
+                    href: `/samehadaku/genres/${gId}`,
+                    samehadakuUrl: sUrl
+                  });
+                }
+              });
+
+              const scoreEl = document.querySelector(".rating strong, .score");
+              const score = scoreEl?.textContent?.trim()?.replace(/[^0-9.]/g, '') || "";
+
+              return { synopsis, genreList, score };
+            });
+
+            if (details.synopsis) item.synopsis = details.synopsis;
+            if (details.genreList.length > 0) item.genreList = details.genreList;
+            if (details.score && !item.score) item.score = details.score;
+
+          } catch (err) {
+            console.error(`Failed to enrich item ${item.animeId}:`, err);
+          } finally {
+            if (page) await page.close();
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Error in enrichAnimeList:", error);
     } finally {
       if (browser) await browser.close();
     }
