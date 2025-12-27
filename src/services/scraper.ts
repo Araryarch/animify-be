@@ -241,6 +241,53 @@ export class ScraperService {
     }
   }
 
+  private async getAggregatedList(apiPage: number, urlBuilder: (p: number) => string, status: string) {
+    const scale = 3;
+    const startWebPage = (apiPage - 1) * scale + 1;
+    const fetchPromises = [];
+
+    for (let i = 0; i < scale; i++) {
+      const p = startWebPage + i;
+      const url = urlBuilder(p);
+      fetchPromises.push(this.scrapeAnimeList(url, "animeList", p, status).then(res => {
+        if (res.data && Array.isArray(res.data.animeList)) {
+          res.data.animeList = res.data.animeList.filter((a: any) => a.status === status);
+        }
+        return res;
+      }));
+    }
+
+    const results = await Promise.all(fetchPromises);
+
+    let allItems: any[] = [];
+    let webTotalPages = 0;
+
+    results.forEach(res => {
+      if (res.data && res.data.animeList) {
+        allItems = allItems.concat(res.data.animeList);
+      }
+      if (res.pagination && res.pagination.totalPages > webTotalPages) {
+        webTotalPages = res.pagination.totalPages;
+      }
+    });
+
+    const apiTotalPages = Math.ceil(webTotalPages / scale);
+    const hasNext = apiPage < apiTotalPages;
+    const hasPrev = apiPage > 1;
+
+    return {
+      data: { animeList: allItems },
+      pagination: {
+        currentPage: apiPage,
+        hasPrevPage: hasPrev,
+        prevPage: hasPrev ? apiPage - 1 : null,
+        hasNextPage: hasNext,
+        nextPage: hasNext ? apiPage + 1 : null,
+        totalPages: apiTotalPages
+      }
+    };
+  }
+
   // Optimized for Archive Lists (Search, Genre, Ongoing, etc)
   private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1, fallbackStatus?: string) {
     let browser: Browser | undefined;
@@ -629,30 +676,20 @@ export class ScraperService {
   }
 
   async getOngoing(pageNumber: number = 1) {
-    const url = pageNumber > 1
-      ? `${BASE_URL}/anime/page/${pageNumber}/?status=ongoing&order=update`
+    const urlBuilder = (p: number) => p > 1
+      ? `${BASE_URL}/anime/page/${p}/?status=ongoing&order=update`
       : `${BASE_URL}/anime/?status=ongoing&order=update`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Ongoing");
 
-    // Strict filtering: Remove items that are not Ongoing (e.g. recently completed items appearing in update feed)
-    if (result.data && Array.isArray(result.data.animeList)) {
-      result.data.animeList = result.data.animeList.filter((anime: any) => anime.status === "Ongoing");
-    }
-
+    const result = await this.getAggregatedList(pageNumber, urlBuilder, "Ongoing");
     return this.enrichPaginationWithCache(result, 'ongoing', pageNumber, `${BASE_URL}/anime/page/{page}/?status=ongoing&order=update`);
   }
 
   async getCompleted(pageNumber: number = 1) {
-    const url = pageNumber > 1
-      ? `${BASE_URL}/anime/page/${pageNumber}/?status=completed&order=latest`
+    const urlBuilder = (p: number) => p > 1
+      ? `${BASE_URL}/anime/page/${p}/?status=completed&order=latest`
       : `${BASE_URL}/anime/?status=completed&order=latest`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Completed");
 
-    // Strict filtering: Remove items that are not Completed
-    if (result.data && Array.isArray(result.data.animeList)) {
-      result.data.animeList = result.data.animeList.filter((anime: any) => anime.status === "Completed");
-    }
-
+    const result = await this.getAggregatedList(pageNumber, urlBuilder, "Completed");
     return this.enrichPaginationWithCache(result, 'completed', pageNumber, `${BASE_URL}/anime/page/{page}/?status=completed&order=latest`);
   }
 
