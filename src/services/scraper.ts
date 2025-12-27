@@ -134,13 +134,24 @@ export class ScraperService {
   }
 
   private constructPagination(page: number, hasNext: boolean, hasPrev: boolean, totalPages: number = 0) {
+    // Ensure totalPages is at least current page
+    let validTotalPages = totalPages;
+    if (validTotalPages < page) {
+      validTotalPages = hasNext ? page + 1 : page;
+    }
+
+    // If hasNextPage but totalPages = currentPage, increment
+    if (hasNext && validTotalPages === page) {
+      validTotalPages = page + 1;
+    }
+
     return {
       currentPage: page,
       hasPrevPage: hasPrev || page > 1,
       prevPage: (hasPrev || page > 1) ? page - 1 : null,
       hasNextPage: hasNext,
       nextPage: hasNext ? page + 1 : null,
-      totalPages: totalPages || (hasNext ? page + 1 : page)
+      totalPages: validTotalPages
     };
   }
 
@@ -208,8 +219,12 @@ export class ScraperService {
         // Try to get total pages from page numbers if available
         let totalPages = 0;
         // Look for last page number in pagination
-        const pageNums = document.querySelectorAll('.hpage a, .pagination a');
+        const pageNums = document.querySelectorAll('.hpage a, .pagination a, .page-numbers');
         pageNums.forEach(el => {
+          const text = el.textContent?.trim() || '';
+          const textNum = parseInt(text);
+          if (!isNaN(textNum) && textNum > totalPages) totalPages = textNum;
+
           const href = el.getAttribute('href') || '';
           const match = href.match(/\/page\/(\d+)/);
           if (match) {
@@ -217,6 +232,13 @@ export class ScraperService {
             if (num > totalPages) totalPages = num;
           }
         });
+
+        // Fallback: if no totalPages found but hasNextPage, estimate
+        if (totalPages === 0 && hasNextPage) {
+          totalPages = pageNumber + 10; // Conservative estimate
+        } else if (totalPages === 0) {
+          totalPages = pageNumber; // Current page is last
+        }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
       });
@@ -341,6 +363,13 @@ export class ScraperService {
             const total = parseInt(parts[1].trim());
             if (!isNaN(total) && total > totalPages) totalPages = total;
           }
+        }
+
+        // Fallback: if no totalPages found but hasNextPage, estimate
+        if (totalPages === 0 && hasNextPage) {
+          totalPages = pageNumber + 10; // Conservative estimate
+        } else if (totalPages === 0) {
+          totalPages = pageNumber; // Current page is last
         }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
