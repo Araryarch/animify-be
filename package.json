@@ -8,7 +8,7 @@
     "dependencies": {
         "@elysiajs/cors": "latest",
         "@elysiajs/swagger": "latest",
-        "@sparticuz/chromium": "^133.0.0",
+        "@sparticuz/chromium": "^143.0.0",
         "cheerio": "latest",
         "elysia": "latest",
         "puppeteer": "^24.34.0",
