@@ -44,7 +44,15 @@ export const animeController = (app: Elysia) => {
                 cache.set(cacheKey, data, 3 * 60 * 1000); // 3 minutes cache
                 return createResponse(data.data, data.pagination, "Successfully fetched home data");
             }, {
-                detail: { summary: "Home Info", description: "Get homepage data including recent, schedule, popular" }
+                detail: {
+                    summary: "Home Info",
+                    description: "Get homepage data including recent, batch, movie, and top10 anime. Returns cached data if available (3min TTL).",
+                    tags: ["Anime"],
+                    responses: {
+                        200: { description: "Successfully fetched home data with recent, batch, movie, and top10 sections" },
+                        429: { description: "Rate limit exceeded (30 req/min)" }
+                    }
+                }
             })
             .get("/recent", async ({ query }) => {
                 const page = query.page || 1;
@@ -61,11 +69,27 @@ export const animeController = (app: Elysia) => {
             })
             .get("/search", async ({ query }) => {
                 const page = query.page || 1;
-                const data = await scraper.getSearch(query.q, page);
-                return createResponse(data.data, data.pagination, `Successfully searched for: ${query.q}`);
+                const searchQuery = query.q || "";
+
+                // Cache search results
+                const cacheKey = `search:${searchQuery}:${page}`;
+                const cached = cache.get<any>(cacheKey);
+                if (cached) return createResponse(cached.data, cached.pagination, `Successfully searched for: ${searchQuery} (cached)`);
+
+                const data = await scraper.getSearch(searchQuery, page);
+                cache.set(cacheKey, data, 10 * 60 * 1000); // 10 minutes cache for search
+                return createResponse(data.data, data.pagination, `Successfully searched for: ${searchQuery}`);
             }, {
                 query: SearchQueryDto,
-                detail: { summary: "Search Anime", description: "Search anime by keyword" }
+                detail: {
+                    summary: "Search Anime",
+                    description: "Search anime by keyword. Results are cached for 10 minutes. Rate limit: 30 req/min.",
+                    tags: ["Anime"],
+                    responses: {
+                        200: { description: "Search results with pagination" },
+                        429: { description: "Rate limit exceeded" }
+                    }
+                }
             })
             .get("/ongoing", async ({ query }) => {
                 const page = query.page || 1;
