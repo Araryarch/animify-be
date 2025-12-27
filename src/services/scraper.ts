@@ -24,9 +24,8 @@ export class ScraperService {
 
       return puppeteerCore.default.launch({
         args: chromium.default.args,
-        defaultViewport: chromium.default.defaultViewport,
         executablePath: await chromium.default.executablePath(),
-        headless: chromium.default.headless,
+        headless: true,
       });
     } else {
       // Local development with regular Puppeteer
