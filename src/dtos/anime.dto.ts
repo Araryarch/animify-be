@@ -38,7 +38,10 @@ export const RecentAnimeDto = t.Object({
     releasedOn: t.String(),
     animeId: t.String(),
     href: t.String(),
-    samehadakuUrl: t.String()
+    samehadakuUrl: t.String(),
+    synopsis: t.Optional(t.String()),
+    score: t.Optional(t.String()),
+    genreList: t.Optional(t.Array(GenreItemDto))
 });
 
 // General Anime Card (Search, Ongoing, Completed, Movies, Popular, Genre)
@@ -52,6 +55,8 @@ export const AnimeCardDto = t.Object({
     href: t.String(),
     samehadakuUrl: t.String(),
     genreList: t.Optional(t.Array(GenreItemDto)),
+    synopsis: t.Optional(t.String()),
+    episodes: t.Optional(t.String()),
     rank: t.Optional(t.Number()) // For popular/top10
 });
 

@@ -317,17 +317,52 @@ export class ScraperService {
           }
 
           const genreList: any[] = [];
-          const classList = el.className || "";
-          const genreMatches = classList.match(/genre-[a-z-]+/g) || [];
-          genreMatches.forEach(g => {
-            const genreId = g.replace("genre-", "");
-            const genreListTitle = genreId.split("-").map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-            genreList.push({
-              title: genreListTitle,
-              genreId,
-              href: `/samehadaku/genres/${genreId}`,
-              samehadakuUrl: `https://v1.samehadaku.how/genre/${genreId}/`
+
+          // Tooltip extraction for richer metadata
+          const tooltip = el.querySelector(".stooltip");
+          const synopsis = tooltip?.querySelector(".ttls")?.textContent?.trim() || "";
+
+          // 1. Genres from Tooltip (Preferred)
+          const tooltipGenres = tooltip?.querySelectorAll(".genres .mta a");
+          if (tooltipGenres && tooltipGenres.length > 0) {
+            tooltipGenres.forEach((g: any) => {
+              const samehadakuUrl = g.getAttribute("href") || "";
+              const genreId = samehadakuUrl.split("/").filter((x: any) => x).pop() || "";
+              const title = g.textContent?.trim() || "";
+              if (genreId && title) {
+                genreList.push({
+                  title,
+                  genreId,
+                  href: `/samehadaku/genres/${genreId}`,
+                  samehadakuUrl
+                });
+              }
             });
+          }
+
+          // 2. Fallback to Class Names if genres missing
+          if (genreList.length === 0) {
+            const classList = el.className || "";
+            const genreMatches = classList.match(/genre-[a-z-]+/g) || [];
+            genreMatches.forEach((g: any) => {
+              const genreId = g.replace("genre-", "");
+              const genreListTitle = genreId.split("-").map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+              genreList.push({
+                title: genreListTitle,
+                genreId,
+                href: `/samehadaku/genres/${genreId}`,
+                samehadakuUrl: `https://v1.samehadaku.how/genre/${genreId}/`
+              });
+            });
+          }
+
+          // Episodes from metadata
+          let episodes = "";
+          tooltip?.querySelectorAll(".metadata span").forEach((s: any) => {
+            const t = s.textContent?.trim() || "";
+            if (/eps|episode/i.test(t)) {
+              episodes = t.replace(/[^0-9]/g, "");
+            }
           });
 
           const score = el.querySelector(".score")?.textContent?.trim().replace(/[^0-9.]/g, '') || "";
@@ -361,6 +396,8 @@ export class ScraperService {
               type,
               score,
               status: status || "Unknown",
+              synopsis,
+              episodes,
               animeId,
               href: `/samehadaku/anime/${animeId}`,
               samehadakuUrl,
