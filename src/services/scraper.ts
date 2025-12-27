@@ -157,10 +157,10 @@ export class ScraperService {
     let page: Page | undefined;
     try {
       ({ browser, page } = await this.getPage());
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
       try {
-        await page.waitForSelector(".post-show ul li", { timeout: 15000 });
+        await page.waitForSelector(".post-show ul li, .animpost", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeRecentList"); }
 
       const data = await page.evaluate(() => {
@@ -262,11 +262,11 @@ export class ScraperService {
     let page: Page | undefined;
     try {
       ({ browser, page } = await this.getPage());
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
       try {
         // Wait for anime list content to load
-        await page.waitForSelector("article.animpost, .animpost, .post-show ul li", { timeout: 15000 });
+        await page.waitForSelector("article.animpost, .animpost, .post-show ul li", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeAnimeList"); }
 
       const data = await page.evaluate(() => {
@@ -395,12 +395,12 @@ export class ScraperService {
     let page: Page | undefined;
     try {
       ({ browser, page } = await this.getPage());
-      await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.goto(BASE_URL, { waitUntil: "networkidle2", timeout: 60000 });
 
       try {
-        // Wait for main content
-        await page.waitForSelector(".post-show ul li, .animpost", { timeout: 15000 });
-      } catch (e) { console.warn("Wait selector timeout in getHome"); }
+        // Wait for main content specifically
+        await page.waitForSelector(".post-show, .animpost", { timeout: 30000 });
+      } catch (e) { console.warn("Wait selector timeout in getHome, checking if content exists anyway"); }
 
       const data = await page.evaluate(() => {
         // Helper to extract anime items
