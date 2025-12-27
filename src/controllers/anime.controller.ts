@@ -5,6 +5,7 @@ import {
     PaginationDto,
     SearchQueryDto,
 } from "../dtos/anime.dto";
+import { cache } from "../utils/cache";
 
 export const animeController = (app: Elysia) => {
     const scraper = new ScraperService();
@@ -12,14 +13,24 @@ export const animeController = (app: Elysia) => {
     return app.group("/anime/samehadaku", (app) =>
         app
             .get("/home", async () => {
+                const cacheKey = "home";
+                const cached = cache.get<any>(cacheKey);
+                if (cached) return createResponse(cached.data, cached.pagination, "Successfully fetched home data (cached)");
+
                 const data = await scraper.getHome();
+                cache.set(cacheKey, data, 3 * 60 * 1000); // 3 minutes cache
                 return createResponse(data.data, data.pagination, "Successfully fetched home data");
             }, {
                 detail: { summary: "Home Info", description: "Get homepage data including recent, schedule, popular" }
             })
             .get("/recent", async ({ query }) => {
                 const page = query.page || 1;
+                const cacheKey = `recent:${page}`;
+                const cached = cache.get<any>(cacheKey);
+                if (cached) return createResponse(cached.data, cached.pagination, "Successfully fetched recent anime (cached)");
+
                 const data = await scraper.getRecent(page);
+                cache.set(cacheKey, data, 5 * 60 * 1000); // 5 minutes cache
                 return createResponse(data.data, data.pagination, "Successfully fetched recent anime");
             }, {
                 query: PaginationDto,
