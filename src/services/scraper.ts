@@ -633,6 +633,12 @@ export class ScraperService {
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=ongoing&order=update`
       : `${BASE_URL}/anime/?status=ongoing&order=update`;
     const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Ongoing");
+
+    // Strict filtering: Remove items that are not Ongoing (e.g. recently completed items appearing in update feed)
+    if (result.data && Array.isArray(result.data.animeList)) {
+      result.data.animeList = result.data.animeList.filter((anime: any) => anime.status === "Ongoing");
+    }
+
     return this.enrichPaginationWithCache(result, 'ongoing', pageNumber, `${BASE_URL}/anime/page/{page}/?status=ongoing&order=update`);
   }
 
@@ -641,6 +647,12 @@ export class ScraperService {
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=completed&order=latest`
       : `${BASE_URL}/anime/?status=completed&order=latest`;
     const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Completed");
+
+    // Strict filtering: Remove items that are not Completed
+    if (result.data && Array.isArray(result.data.animeList)) {
+      result.data.animeList = result.data.animeList.filter((anime: any) => anime.status === "Completed");
+    }
+
     return this.enrichPaginationWithCache(result, 'completed', pageNumber, `${BASE_URL}/anime/page/{page}/?status=completed&order=latest`);
   }
 
