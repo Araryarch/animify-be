@@ -242,7 +242,7 @@ export class ScraperService {
   }
 
   // Optimized for Archive Lists (Search, Genre, Ongoing, etc)
-  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1) {
+  private async scrapeAnimeList(url: string, listKey: string = "animeList", pageNumber: number = 1, fallbackStatus?: string) {
     let browser: Browser | undefined;
     let page: Page | undefined;
     try {
@@ -253,7 +253,7 @@ export class ScraperService {
         await page.waitForSelector("article.animpost, .animpost", { timeout: 30000 });
       } catch (e) { console.warn("Wait selector timeout in scrapeAnimeList"); }
 
-      const data = await page.evaluate(() => {
+      const data = await page.evaluate((defaultStatus) => {
         const items: any[] = [];
         const elements = document.querySelectorAll("article.animpost, .animpost");
 
@@ -298,8 +298,13 @@ export class ScraperService {
           // Enhanced: Check raw text for status keywords if standard parsing fails
           if (!status || status === type || status === "TV") {
             const rawText = el.textContent || "";
-            if (rawText.includes("Ongoing")) status = "Ongoing";
-            else if (rawText.includes("Completed")) status = "Completed";
+            if (/Ongoing|Sedang Tayang/i.test(rawText)) status = "Ongoing";
+            else if (/Completed|Tamat|Selesai/i.test(rawText)) status = "Completed";
+
+            // Final fallback: Use endpoint context if status is still unknown/invalid
+            if ((!status || status === type || status === "TV" || status === "Movie") && defaultStatus) {
+              status = defaultStatus;
+            }
           }
 
           if (title && animeId) {
@@ -345,7 +350,7 @@ export class ScraperService {
         }
 
         return { items, hasNextPage, hasPrevPage, totalPages };
-      });
+      }, fallbackStatus);
 
       return {
         message: "Successfully fetched data",
@@ -627,7 +632,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=ongoing&order=update`
       : `${BASE_URL}/anime/?status=ongoing&order=update`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Ongoing");
     return this.enrichPaginationWithCache(result, 'ongoing', pageNumber, `${BASE_URL}/anime/page/{page}/?status=ongoing&order=update`);
   }
 
@@ -635,7 +640,7 @@ export class ScraperService {
     const url = pageNumber > 1
       ? `${BASE_URL}/anime/page/${pageNumber}/?status=completed&order=latest`
       : `${BASE_URL}/anime/?status=completed&order=latest`;
-    const result = await this.scrapeAnimeList(url, "animeList", pageNumber);
+    const result = await this.scrapeAnimeList(url, "animeList", pageNumber, "Completed");
     return this.enrichPaginationWithCache(result, 'completed', pageNumber, `${BASE_URL}/anime/page/{page}/?status=completed&order=latest`);
   }
 
