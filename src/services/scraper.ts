@@ -66,8 +66,8 @@ export class ScraperService {
     return { browser, page };
   }
 
-  // Binary search to find the last page with content
-  private async findTotalPages(baseUrlPattern: string, cacheKey: string): Promise<number> {
+  // Find actual total pages by checking sequentially until 10 consecutive empty pages
+  private async findActualTotalPages(baseUrlPattern: string, cacheKey: string, startPage: number = 1): Promise<number> {
     // Check cache first
     const cached = totalPagesCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -80,58 +80,55 @@ export class ScraperService {
     try {
       ({ browser, page } = await this.getPage());
 
-      let low = 1;
-      let high = 1000; // Start with a high estimate
-      let lastValid = 1;
+      let currentPage = startPage;
+      let lastValidPage = startPage;
+      let consecutiveEmptyPages = 0;
+      const maxConsecutiveEmpty = 10; // Stop after 10 consecutive empty pages
 
-      // First, find an upper bound by doubling
-      while (high <= 2000) {
-        const url = baseUrlPattern.replace('{page}', String(high));
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+      console.log(`[TotalPages] Starting search from page ${startPage} for ${cacheKey}`);
 
-        const hasContent = await page.evaluate(() => {
-          return document.querySelectorAll('.post-show ul li, article.animpost').length > 0;
-        });
+      while (consecutiveEmptyPages < maxConsecutiveEmpty && currentPage <= 2000) {
+        const url = baseUrlPattern.replace('{page}', String(currentPage));
 
-        if (hasContent) {
-          low = high;
-          high = high * 2;
-          lastValid = high;
-        } else {
-          break;
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+          const hasContent = await page.evaluate(() => {
+            const items = document.querySelectorAll('.post-show ul li, article.animpost, .animpost');
+            return items.length > 0;
+          });
+
+          if (hasContent) {
+            lastValidPage = currentPage;
+            consecutiveEmptyPages = 0;
+            console.log(`[TotalPages] Page ${currentPage}: has content ✓`);
+          } else {
+            consecutiveEmptyPages++;
+            console.log(`[TotalPages] Page ${currentPage}: empty (${consecutiveEmptyPages}/${maxConsecutiveEmpty})`);
+          }
+
+          currentPage++;
+        } catch (error) {
+          console.error(`[TotalPages] Error checking page ${currentPage}:`, error);
+          consecutiveEmptyPages++;
+          currentPage++;
         }
       }
 
-      // Binary search between low and high
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const url = baseUrlPattern.replace('{page}', String(mid));
-
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-
-        const hasContent = await page.evaluate(() => {
-          return document.querySelectorAll('.post-show ul li, article.animpost').length > 0;
-        });
-
-        if (hasContent) {
-          lastValid = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
+      console.log(`[TotalPages] Found actual total pages: ${lastValidPage} for ${cacheKey}`);
 
       // Cache the result
-      totalPagesCache.set(cacheKey, { value: lastValid, timestamp: Date.now() });
-      return lastValid;
+      totalPagesCache.set(cacheKey, { value: lastValidPage, timestamp: Date.now() });
+      return lastValidPage;
 
     } catch (error) {
-      console.error('Error finding total pages:', error);
-      return 0;
+      console.error('[TotalPages] Error finding total pages:', error);
+      return startPage; // Return at least the start page
     } finally {
       if (browser) await browser.close();
     }
   }
+
 
   private constructPagination(page: number, hasNext: boolean, hasPrev: boolean, totalPages: number = 0) {
     // Ensure totalPages is at least current page
@@ -592,8 +589,8 @@ export class ScraperService {
       if (cachedTotal && Date.now() - cachedTotal.timestamp < CACHE_TTL) {
         totalPages = cachedTotal.value;
       } else {
-        // Trigger background update
-        this.findTotalPages(`${BASE_URL}/page/{page}/`, recentCacheKey).then(total => {
+        // Trigger background update from page 1
+        this.findActualTotalPages(`${BASE_URL}/page/{page}/`, recentCacheKey, 1).then((total: number) => {
           console.log(`Updated cache for recent (from home): ${total}`);
         }).catch(console.error);
       }
@@ -637,7 +634,7 @@ export class ScraperService {
         result.pagination.totalPages = Math.max(result.pagination.totalPages, pageNumber + 50);
 
         // Start background task
-        this.findTotalPages(urlPattern, endpoint).then(total => {
+        this.findActualTotalPages(urlPattern, endpoint, pageNumber).then((total: number) => {
           console.log(`Updated cache for ${endpoint}: ${total}`);
         }).catch(console.error);
       }
@@ -984,7 +981,7 @@ export class ScraperService {
       movies: `${BASE_URL}/anime/page/{page}/?type=movie`
     };
 
-    const total = await this.findTotalPages(patterns[endpoint], endpoint);
+    const total = await this.findActualTotalPages(patterns[endpoint], endpoint, 1);
     return {
       message: "Successfully fetched total pages",
       data: { endpoint, totalPages: total },
